@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mood Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 2rem;
+      background: #f5f5f5;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+    }
+    .grid {
+      display: grid;
+      grid-template-rows: repeat(7, 12px);
+      grid-auto-flow: column;
+      gap: 2px;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+    .day {
+      width: 12px;
+      height: 12px;
+      background: #ddd;
+      border-radius: 2px;
+      cursor: pointer;
+    }
+    .mood--2 { background: #d73027; }
+    .mood--1 { background: #fc8d59; }
+    .mood-0  { background: #ffffbf; }
+    .mood-1  { background: #91cf60; }
+    .mood-2  { background: #1a9850; }
+    
+    #resetButton {
+      display: block;
+      margin: 1rem auto;
+      padding: 0.5rem 1rem;
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #resetButton:hover {
+      background: #c0392b;
+    }
+    #noteContainer {
+      max-width: 800px;
+      margin: 2rem auto;
+      display: none;
+    }
+    #noteContainer h2 {
+      margin-bottom: 0.5rem;
+    }
+    .mood-options {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .mood-option {
+      font-size: 1.5rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .mood-option.selected {
+      border-color: #000;
+    }
+    .mood--2.option { background-color: #d73027; color: white; }
+    .mood--1.option { background-color: #fc8d59; color: black; }
+    .mood-0.option  { background-color: #ffffbf; color: black; }
+    .mood-1.option  { background-color: #91cf60; color: white; }
+    .mood-2.option  { background-color: #1a9850; color: white; }
+    #noteContainer textarea {
+      width: 100%;
+      padding: 0.5rem;
+      font-size: 1rem;
+      height: 100px;
+    }
+      .today {
+      outline: 2px solid #000;
+    }
+    .scroll-container {
+      overflow-x: auto;
+      padding-bottom: 1rem;
+      -webkit-overflow-scrolling: touch;
+    }
+    .grid {
+      min-width: 780px;
+    }
+    #exportButton {
+      display: block;
+      margin: 1rem auto;
+      padding: 0.5rem 1rem;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #exportButton:hover {
+      background: #2980b9;
+    }
+    .today {
+      outline: 2px solid #000;
+    }
+.chart-wrapper {
+      max-width: 800px;
+      width: 100%;
+      height: 300px;
+      margin: 2rem auto;
+    }
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>Mood Tracker</h1>
+  <button id="resetButton">Reset All Mood Data</button>
+  <div class="scroll-container">
+    <div class="grid" id="grid"></div>
+  </div>
+    <div id="averageMood" style="text-align:center; font-size:1.2rem; margin-top:1rem;"></div>
+    <div class="chart-wrapper">
+  <canvas id="moodChart"></canvas>
+</div>
+  <div id="noteContainer">
+    <h2 id="noteTitle"></h2>
+    <div class="mood-options" id="moodButtons"></div>
+    <textarea id="noteInput" placeholder="Write your note..."></textarea>
+  </div>
+
+  <script>
+    const grid = document.getElementById('grid');
+    const today = new Date();
+    const moodValues = [-2, -1, 0, 1, 2];
+    const moodFaces = { '-2': '😫', '-1': '☹️', '0': '😐', '1': '🙂', '2': '😄' };
+    let savedData = JSON.parse(localStorage.getItem('moodData') || '{}');
+    let savedNotes = JSON.parse(localStorage.getItem('moodNotes') || '{}');
+
+    // Determine the start date based on first mood entry or today
+    const getStartDate = () => {
+      const keys = Object.keys(savedData);
+      if (keys.length === 0) return new Date();
+      const [day, month, year] = keys[0].split('/').map(Number);
+      return new Date(year, month - 1, day);
+    };
+
+    const startDate = getStartDate();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 364);
+
+    let chart;
+
+    function moodLabel(value) {
+      switch (value) {
+        case -2: return 'Awful';
+        case -1: return 'Bad';
+        case 0: return 'Fine';
+        case 1: return 'Good';
+        case 2: return 'Great';
+        default: return '';
+      }
+    }
+
+    function renderChart() {
+      const avgMoodEl = document.getElementById('averageMood');
+      const moodDates = [];
+      const moodScores = [];
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const date = new Date(d.getTime());
+        const dateKey = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+        if (savedData[dateKey] !== undefined) {
+          moodDates.push(`${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`);
+          moodScores.push(savedData[dateKey]);
+        }
+      }
+            const moodSum = moodScores.reduce((acc, val) => acc + val, 0);
+      const moodAvg = moodScores.length ? (moodSum / moodScores.length) : 0;
+      const roundedAvg = Math.round(moodAvg);
+      avgMoodEl.innerText = `Your average mood was ${moodLabel(roundedAvg)}`;
+
+      if (chart) chart.destroy();
+      const ctx = document.getElementById('moodChart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: moodDates,
+          datasets: [{
+            label: 'Mood Over Time',
+            data: moodScores,
+            borderColor: '#333',
+            backgroundColor: 'rgba(100, 100, 100, 0.1)',
+            tension: 0.2,
+            pointRadius: 0,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          animation: {
+            duration: 500
+          },
+          plugins: {
+            tooltip: {
+              enabled: true
+            }
+          },
+          scales: {
+            y: {
+              min: -2,
+              max: 2.4,
+              ticks: {
+                stepSize: 1,
+                callback: moodLabel
+              }
+            }
+          }
+        }
+      });
+    }
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const date = new Date(d.getTime());
+      
+      const dateKey = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+
+      const div = document.createElement('div');
+      div.className = 'day';
+      if (
+        date.getDate() === today.getDate() &&
+        date.getMonth() === today.getMonth() &&
+        date.getFullYear() === today.getFullYear()
+      ) {
+        div.classList.add('today');
+      }
+      if (savedData[dateKey] !== undefined) div.classList.add(`mood-${savedData[dateKey]}`);
+      div.title = `${dateKey} - ${moodLabel(savedData[dateKey])}`;
+      div.onclick = () => openNoteEditor(dateKey, div);
+      grid.appendChild(div);
+    }
+
+    function openNoteEditor(dateKey, cell) {
+      const noteContainer = document.getElementById('noteContainer');
+      const noteInput = document.getElementById('noteInput');
+      const moodButtons = document.getElementById('moodButtons');
+      document.getElementById('noteTitle').innerText = `Entry for ${dateKey}`;
+      noteContainer.style.display = 'block';
+
+      moodButtons.innerHTML = '';
+      moodValues.forEach(value => {
+        const btn = document.createElement('div');
+        btn.className = `mood-option mood-${value} option`;
+        if (savedData[dateKey] == value) btn.classList.add('selected');
+        btn.innerText = moodFaces[value];
+        btn.onclick = () => {
+          savedData[dateKey] = value;
+          localStorage.setItem('moodData', JSON.stringify(savedData));
+          cell.className = 'day mood-' + value;
+          cell.title = `${dateKey} - ${moodLabel(value)}`;
+          [...moodButtons.children].forEach(c => c.classList.remove('selected'));
+          btn.classList.add('selected');
+          renderChart();
+
+    
+
+    
+
+    
+        };
+        moodButtons.appendChild(btn);
+      });
+
+      noteInput.value = savedNotes[dateKey] || '';
+      noteInput.oninput = () => {
+        savedNotes[dateKey] = noteInput.value;
+        localStorage.setItem('moodNotes', JSON.stringify(savedNotes));
+      };
+    }
+
+    document.getElementById('resetButton').onclick = () => {
+      if (confirm('Are you sure you want to reset all mood data?')) {
+        localStorage.removeItem('moodData');
+        localStorage.removeItem('moodNotes');
+        location.reload();
+      }
+    };
+
+    renderChart();
+  </script>
+</body>
+</html>
