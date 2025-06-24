@@ -61,6 +61,22 @@
   border-radius: 34px;
 }
 
+input:not(:checked) + .slider:before {
+  content: "☀️";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+input:checked + .slider:before {
+  content: "🌙";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
 .slider:before {
   position: absolute;
   content: "";
