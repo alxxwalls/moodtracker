@@ -442,19 +442,27 @@ document.getElementById('uploadBackup').addEventListener('change', function(even
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const imported = JSON.parse(e.target.result);
-      if (imported.moodData && imported.moodNotes) {
-        localStorage.setItem('moodData', JSON.stringify(imported.moodData));
-        localStorage.setItem('moodNotes', JSON.stringify(imported.moodNotes));
-        alert('Mood history restored. Reloading...');
-        location.reload();
-      } else {
-        alert('Invalid backup file.');
-      }
-    } catch (err) {
-      alert('Failed to import backup.');
-    }
-  };
+  const imported = JSON.parse(e.target.result);
+  if (
+    typeof imported !== 'object' ||
+    typeof imported.moodData !== 'object' ||
+    typeof imported.moodNotes !== 'object'
+  ) {
+    alert('Invalid backup file.');
+    return;
+  }
+
+  localStorage.setItem('moodData', JSON.stringify(imported.moodData));
+  localStorage.setItem('moodNotes', JSON.stringify(imported.moodNotes));
+  alert('Mood history restored. Reloading...');
+  location.reload();
+} catch (err) {
+  alert('Failed to import backup.');
+};
+  if (file.size > 100000) {
+  alert("File too large. Please upload a smaller file.");
+  return;
+}
   reader.readAsText(file);
 });
     renderChart();
