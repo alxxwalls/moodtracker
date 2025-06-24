@@ -202,6 +202,20 @@ input:checked + .slider:before {
       width: 100% !important;
       height: 100% !important;
     }
+    #downloadBackup, #uploadLabel {
+  display: block;
+  margin: 0.5rem auto;
+  padding: 0.5rem 1rem;
+  background: #2ecc71;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+}
+#uploadLabel {
+  background: #9b59b6;
+}
   </style>
 </head>
 <body>
@@ -223,6 +237,9 @@ input:checked + .slider:before {
     <div class="mood-options" id="moodButtons"></div>
     <textarea id="noteInput" placeholder="Write your note..."></textarea>
   </div>
+  <button id="downloadBackup">Download Mood Backup</button>
+<input type="file" id="uploadBackup" accept=".json" style="display: none;">
+<label for="uploadBackup" id="uploadLabel">Upload Mood Backup</label>
 
   <script>
     const grid = document.getElementById('grid');
@@ -392,6 +409,42 @@ toggle.checked = isDark;
 toggle.addEventListener('change', () => {
   document.body.classList.toggle('dark-mode', toggle.checked);
   localStorage.setItem('darkMode', toggle.checked);
+});
+document.getElementById('downloadBackup').onclick = () => {
+  const data = {
+    moodData: savedData,
+    moodNotes: savedNotes
+  };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mood_backup.json';
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+document.getElementById('uploadBackup').addEventListener('change', function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (imported.moodData && imported.moodNotes) {
+        localStorage.setItem('moodData', JSON.stringify(imported.moodData));
+        localStorage.setItem('moodNotes', JSON.stringify(imported.moodNotes));
+        alert('Mood history restored. Reloading...');
+        location.reload();
+      } else {
+        alert('Invalid backup file.');
+      }
+    } catch (err) {
+      alert('Failed to import backup.');
+    }
+  };
+  reader.readAsText(file);
 });
     renderChart();
   </script>
